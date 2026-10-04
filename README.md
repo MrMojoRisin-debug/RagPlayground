@@ -22,7 +22,25 @@ uv run ui                 # opens the chat UI at http://localhost:8501
 | Try another prompt | Add `prompts/<name>.md`, pick it in the UI sidebar |
 | Run an eval | `uv run eval` (or `uv run eval --prompt prompts/concise.md`) |
 
-Supported file types: `.md .txt .rst .csv .json .pdf .docx .html`. Scanned PDFs need OCR first.
+Supported file types: `.md .txt .rst .csv .json .pdf .docx .html`. Scanned PDFs need OCR first, and
+text inside screenshots/figures is not extracted (only the PDF's text layer is indexed).
+
+## Sample PDF corpus
+
+`corpus/` is gitignored, so the repo ships a script that downloads a test set of 20 public PDFs
+(~520 MB, ~21,000 pages) into `corpus/samples/`:
+
+```bash
+uv run python scripts/fetch_sample_pdfs.py   # skips files already downloaded
+uv run ingest                                # ~25 min on an Apple-silicon Mac (~20k chunks)
+```
+
+It mixes screenshot-heavy software manuals (QGIS, LibreOffice, Nextcloud, KiCad, Proxmox, Pro Git),
+1000+ page references (AWS S3/EC2 guides, PostgreSQL, Kotlin, QGIS), and figure/table-heavy handbooks
+and standards (FAA, NASA, IRS, NIST CSF, OWASP). `evals/dataset.jsonl` includes questions on them.
+
+PDF pages are packed into chunks of up to ~700 tokens (short consecutive pages are merged), and
+citations show the page range, e.g. `aws-s3-user-guide.pdf (pp. 195-196)`.
 
 ## How it works
 

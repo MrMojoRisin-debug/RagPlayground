@@ -54,3 +54,31 @@ def chunk_text(text: str, size: int = config.CHUNK_SIZE, overlap: int = config.C
         tail = tail[cut + 1 :] if 0 <= cut < len(tail) - 1 else tail
         chunks.append(f"{tail} {cur}")
     return [c.strip() for c in chunks if c.strip()]
+
+
+def pack_pages(segments: list[tuple[str, dict]], size: int = config.CHUNK_SIZE - config.CHUNK_OVERLAP) -> list[tuple[str, dict]]:
+    """Merge consecutive short PDF pages into windows of up to `size` characters.
+
+    Non-paged segments pass through unchanged. Each window records its page range so
+    citations can point at "pp. 12-13". Pages longer than `size` stay on their own and
+    are split later by chunk_text.
+    """
+    if not any("page" in meta for _, meta in segments):
+        return segments
+    packed: list[tuple[str, dict]] = []
+    texts: list[str] = []
+    first = last = None
+    for text, meta in segments:
+        text = text.strip()
+        if not text:
+            continue
+        if texts and sum(map(len, texts)) + len(text) > size:
+            packed.append(("\n\n".join(texts), {"page": first, "page_end": last}))
+            texts = []
+        if not texts:
+            first = meta["page"]
+        texts.append(text)
+        last = meta["page"]
+    if texts:
+        packed.append(("\n\n".join(texts), {"page": first, "page_end": last}))
+    return packed

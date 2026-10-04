@@ -8,7 +8,11 @@ removed, unchanged files are skipped. Use --rebuild to start from scratch.
 """
 
 import argparse
+import contextlib
 import hashlib
+import os
+import shutil
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -16,8 +20,21 @@ from pathlib import Path
 from typing import Callable
 
 from . import config, embeddings, store
-from .chunker import chunk_text
+from .chunker import chunk_text, pack_pages
 from .loaders import SUPPORTED_EXTENSIONS, load_file
+
+
+@contextlib.contextmanager
+def _keep_awake():
+    """On macOS, block idle sleep while this process runs (a long ingest otherwise stalls when the Mac sleeps)."""
+    proc = None
+    if sys.platform == "darwin" and shutil.which("caffeinate"):
+        proc = subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
+    try:
+        yield
+    finally:
+        if proc:
+            proc.terminate()
 
 
 def _file_hash(path: Path) -> str:
@@ -37,21 +54,35 @@ def _scan_corpus(log: Callable[[str], None]) -> dict[str, Path]:
     return files
 
 
-def _index_file(col, rel: str, path: Path) -> int:
+BATCH = 256  # chunks embedded + written per step (Chroma caps a single add at ~5k records)
+
+
+def _index_file(col, rel: str, path: Path, log: Callable[[str], None]) -> int:
     ids, docs, metas = [], [], []
-    for text, extra in load_file(path):
+    for text, extra in pack_pages(load_file(path)):
         for chunk in chunk_text(text):
             n = len(ids)
             ids.append(f"{rel}::{n}")
             docs.append(chunk)
             metas.append({"source": rel, "chunk": n, **extra})
     col.delete(where={"source": rel})
-    if ids:
-        col.add(ids=ids, documents=docs, metadatas=metas, embeddings=embeddings.embed_documents(docs))
+    started = time.time()
+    for i in range(0, len(ids), BATCH):
+        j = i + BATCH
+        col.add(ids=ids[i:j], documents=docs[i:j], metadatas=metas[i:j], embeddings=embeddings.embed_documents(docs[i:j]))
+        if len(ids) > BATCH:
+            done = min(j, len(ids))
+            eta = (time.time() - started) / done * (len(ids) - done)
+            log(f"        {rel}: {done}/{len(ids)} chunks embedded, ~{eta / 60:.0f} min left")
     return len(ids)
 
 
 def sync(rebuild: bool = False, log: Callable[[str], None] = print) -> dict:
+    with _keep_awake():
+        return _sync(rebuild, log)
+
+
+def _sync(rebuild: bool, log: Callable[[str], None]) -> dict:
     config.CORPUS_DIR.mkdir(exist_ok=True)
     manifest = store.load_manifest()
     settings = store.index_settings()
@@ -84,7 +115,7 @@ def sync(rebuild: bool = False, log: Callable[[str], None] = print) -> dict:
                 stats["unchanged"] += 1
                 continue
             try:
-                n_chunks = _index_file(col, rel, path)
+                n_chunks = _index_file(col, rel, path, log)
             except Exception as exc:  # keep going; the file is retried next sync
                 stats["failed"] += 1
                 log(f"  !     {rel}: {exc}")
@@ -111,7 +142,7 @@ def main() -> None:
     parser.add_argument("--rebuild", action="store_true", help="wipe the index and re-embed every file")
     args = parser.parse_args()
     print(f"Syncing {config.CORPUS_DIR} (embedding model: {config.EMBED_MODEL})")
-    stats = sync(rebuild=args.rebuild)
+    stats = sync(rebuild=args.rebuild, log=lambda line: print(line, flush=True))
     sys.exit(1 if stats["failed"] else 0)
 
 

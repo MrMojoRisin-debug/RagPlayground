@@ -10,3 +10,13 @@
 {"question": "What is the CEO's name?", "reference": "REFUSE"}
 {"question": "Who won the 2022 FIFA World Cup?", "reference": "REFUSE"}
 {"question": "What is the price of the Northwind Beacon?", "reference": "REFUSE"}
+{"question": "What port does a PostgreSQL server listen on by default?", "reference": "5432.", "expected_sources": ["samples/dev/postgresql-17-manual.pdf"]}
+{"question": "In Git, how do I see the changes I've staged compared to my last commit?", "reference": "Run git diff --staged (git diff --cached is a synonym).", "expected_sources": ["samples/software/pro-git-2nd-edition.pdf"]}
+{"question": "What are the Functions of the NIST Cybersecurity Framework 2.0?", "reference": "Six Functions: Govern, Identify, Protect, Detect, Respond, Recover.", "expected_sources": ["samples/security/nist-cybersecurity-framework-2.0.pdf"]}
+{"question": "Which forces act on an aircraft in straight-and-level, unaccelerated flight?", "reference": "Four forces: thrust, lift, weight, and drag.", "expected_sources": ["samples/handbooks/faa-pilots-handbook-of-aeronautical-knowledge.pdf"]}
+{"question": "What is the maximum size of a single object in Amazon S3, and how large can a single PUT upload be?", "reference": "Objects can be up to 50 TB (increased from 5 TB; must use multipart upload for large objects). A single PUT can upload up to 5 GB.", "expected_sources": ["samples/cloud/aws-s3-user-guide.pdf"]}
+{"question": "Which port do I use to reach the Proxmox VE web interface after installation?", "reference": "Port 8006, e.g. https://youripaddress:8006, logging in as root (realm PAM).", "expected_sources": ["samples/software/proxmox-ve-admin-guide.pdf"]}
+{"question": "What are the pillars of the AWS Well-Architected Framework?", "reference": "Six pillars: operational excellence, security, reliability, performance efficiency, cost optimization, and sustainability.", "expected_sources": ["samples/cloud/aws-well-architected-framework.pdf"]}
+{"question": "What does the OWASP test WSTG-INFO-01 cover?", "reference": "Conducting search engine discovery and reconnaissance for information leakage (what search engines/robots have indexed about the target).", "expected_sources": ["samples/security/owasp-web-security-testing-guide-4.2.pdf"]}
+{"question": "What is the maximum blob size in Azure Blob Storage?", "reference": "REFUSE"}
+{"question": "What is the default port for MongoDB?", "reference": "REFUSE"}
