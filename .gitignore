@@ -8,3 +8,4 @@ data/
 # Your documents stay local; only the empty folder is tracked
 corpus/*
 !corpus/.gitkeep
+logs/

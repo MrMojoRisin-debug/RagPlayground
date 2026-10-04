@@ -1,5 +1,10 @@
 [server]
 headless = true
+# Streamlit's file watcher walks every loaded module; on transformers' lazy-loaded vision
+# models that forces imports of torchvision (not installed) and floods the log with
+# ModuleNotFoundError tracebacks. Trade-off: edits to app.py need a browser refresh/restart.
+# (prompts/*.md are re-read on every question regardless.)
+fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false

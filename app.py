@@ -1,5 +1,6 @@
 """RAG Playground chat UI.  Run with:  uv run ui"""
 
+import logging
 import os
 
 import streamlit as st
@@ -7,6 +8,10 @@ import streamlit as st
 from rag import config, embeddings, store
 from rag.answer import list_prompts, load_system_prompt, stream_answer
 from rag.ingest import sync
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # silence per-request Hugging Face HEAD checks
+log = logging.getLogger("rag.app")
 
 st.set_page_config(page_title="RAG Playground", page_icon=":material/search:", layout="centered")
 
@@ -106,4 +111,5 @@ if question := st.chat_input("Ask a question about your corpus"):
             render_sources(sources)
             st.session_state.messages.append({"role": "assistant", "content": text, "sources": sources})
         except Exception as exc:
+            log.exception("Failed to answer: %r", question)
             st.error(f"{type(exc).__name__}: {exc}")
