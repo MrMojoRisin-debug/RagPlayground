@@ -1,0 +1,30 @@
+[project]
+name = "rag-playground"
+version = "0.1.0"
+description = "Local RAG workspace: drop files in corpus/, ingest, ask questions, run evals."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.12",
+    "chromadb>=1.0",
+    "langsmith>=0.4",
+    "openai>=1.60",
+    "pypdf>=5.0",
+    "python-docx>=1.1",
+    "python-dotenv>=1.0",
+    "sentence-transformers>=5.0",
+    "streamlit>=1.45",
+    "transformers>=4.51",
+]
+
+[project.scripts]
+ingest = "rag.ingest:main"
+ui = "rag.launch_ui:main"
+eval = "evals.run_eval:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rag", "evals"]

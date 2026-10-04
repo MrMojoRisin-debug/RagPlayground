@@ -1,0 +1,12 @@
+{"question": "How many days do I have to return a hardware product?", "reference": "30 days from delivery for a full refund.", "expected_sources": ["policies/refunds-and-returns.md"]}
+{"question": "How long do refunds take to arrive?", "reference": "5-7 business days after the returned item is received at the Rotterdam warehouse, to the original payment method. Store credit is instant.", "expected_sources": ["policies/refunds-and-returns.md"]}
+{"question": "Can I return a custom-engraved Beacon?", "reference": "No, custom-engraved Beacon units are non-refundable.", "expected_sources": ["policies/refunds-and-returns.md"]}
+{"question": "How much PTO do full-time employees get, and how much can be carried over?", "reference": "25 days per year; up to 5 unused days can be carried over, expiring 31 March.", "expected_sources": ["policies/employee-leave.md"]}
+{"question": "When do I need a doctor's note for sick leave?", "reference": "For sick absences longer than three consecutive working days.", "expected_sources": ["policies/employee-leave.md"]}
+{"question": "How long is parental leave for non-birthing parents?", "reference": "12 weeks fully paid, usable within the first year after birth or adoption.", "expected_sources": ["policies/employee-leave.md"]}
+{"question": "What is the Beacon's battery life?", "reference": "About 18 months at the default 10-minute interval, roughly 3 months at the 1-minute live interval.", "expected_sources": ["product/beacon-faq.md"]}
+{"question": "Does the Beacon work on 5 GHz Wi-Fi?", "reference": "No, only 2.4 GHz Wi-Fi (or Thread) is supported.", "expected_sources": ["product/beacon-faq.md"]}
+{"question": "How do I factory reset my Beacon?", "reference": "Hold the top button for 10 seconds until the ring light flashes amber three times; this erases Wi-Fi and pairing data but keeps calibration.", "expected_sources": ["product/beacon-faq.md"]}
+{"question": "What is the CEO's name?", "reference": "REFUSE"}
+{"question": "Who won the 2022 FIFA World Cup?", "reference": "REFUSE"}
+{"question": "What is the price of the Northwind Beacon?", "reference": "REFUSE"}
