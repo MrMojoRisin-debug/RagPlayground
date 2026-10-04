@@ -73,5 +73,6 @@ prompt, LLM call) to the `LANGSMITH_PROJECT` project.
 All settings live in `.env` (see `.env.example`): models, chunk size/overlap, top-k, history length,
 system prompt file, refusal phrase, LangSmith project/dataset names.
 
-The sample documents in `corpus/` describe a fictional company - delete them once you add your own
+`corpus/` is gitignored, so your documents never leave your machine via git. The sample documents
+there describe a fictional company - delete them once you add your own
 (and replace the questions in `evals/dataset.jsonl`).
