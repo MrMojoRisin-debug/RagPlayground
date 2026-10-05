@@ -9,3 +9,4 @@ data/
 corpus/*
 !corpus/.gitkeep
 logs/
+evals/reports/

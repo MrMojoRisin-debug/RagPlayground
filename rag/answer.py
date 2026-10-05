@@ -65,6 +65,11 @@ def llm_client() -> OpenAI:
     return wrap_openai(client)  # LLM calls show up in LangSmith traces when tracing is on
 
 
+# Shown when the model's own safety layer blocks a reply (OpenRouter returns no text with
+# finish_reason "content_filter"); without this the user would see an empty answer.
+BLOCKED_TEXT = "I can't help with that request."
+
+
 @traceable(name="rag_answer")
 def answer(question: str, history: list[dict] | None = None, prompt_path: Path | str | None = None) -> dict:
     chunks = retrieve(question)
@@ -72,7 +77,8 @@ def answer(question: str, history: list[dict] | None = None, prompt_path: Path |
     resp = llm_client().chat.completions.create(
         model=config.LLM_MODEL, messages=messages, temperature=config.TEMPERATURE
     )
-    return {"answer": resp.choices[0].message.content or "", "chunks": chunks}
+    text = resp.choices[0].message.content or ""
+    return {"answer": text or BLOCKED_TEXT, "chunks": chunks}
 
 
 def _reduce_stream(events: list) -> dict:
@@ -92,6 +98,10 @@ def stream_answer(
     stream = llm_client().chat.completions.create(
         model=config.LLM_MODEL, messages=messages, temperature=config.TEMPERATURE, stream=True
     )
+    produced = False
     for event in stream:
         if event.choices and event.choices[0].delta.content:
+            produced = True
             yield event.choices[0].delta.content
+    if not produced:
+        yield BLOCKED_TEXT

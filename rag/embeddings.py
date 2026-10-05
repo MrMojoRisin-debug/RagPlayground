@@ -1,15 +1,24 @@
 """Local embedding model (sentence-transformers). Loaded once per process."""
 
 import threading
-from functools import lru_cache
 
 from . import config
 
-_lock = threading.Lock()
+# One lock guards both loading and encoding: the GPU (MPS) backend crashes if two threads
+# initialise or run the model at the same time (e.g. parallel eval workers).
+_lock = threading.RLock()
+_loaded = None
 
 
-@lru_cache(maxsize=1)
 def _model():
+    global _loaded
+    with _lock:
+        if _loaded is None:
+            _loaded = _load()
+        return _loaded
+
+
+def _load():
     import torch
     from sentence_transformers import SentenceTransformer
 

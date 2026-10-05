@@ -13,13 +13,12 @@ import hashlib
 import json
 import os
 import sys
-from collections import defaultdict
 from pathlib import Path
 
-from rag import config, store
+from rag import config, embeddings, store
 from rag.answer import answer, load_system_prompt
 
-from . import evaluators
+from . import evaluators, report
 
 
 def _load_local_dataset(path: Path) -> list[dict]:
@@ -42,7 +41,12 @@ def sync_dataset(client, rows: list[dict]) -> None:
         dataset = client.create_dataset(name, description="RagPlayground eval set (synced from evals/dataset.jsonl)")
 
     def outputs(row: dict) -> dict:
-        return {"reference": row["reference"], "expected_sources": row.get("expected_sources", [])}
+        default = "off_corpus" if row["reference"] == evaluators.REFUSE else "answerable"
+        return {
+            "reference": row["reference"],
+            "expected_sources": row.get("expected_sources", []),
+            "category": row.get("category", default),
+        }
 
     existing = {ex.inputs["question"]: ex for ex in client.list_examples(dataset_id=dataset.id)}
     local = {row["question"]: row for row in rows}
@@ -59,29 +63,6 @@ def sync_dataset(client, rows: list[dict]) -> None:
             changed += 1
     removed = len(set(existing) - set(local))
     print(f"Dataset '{name}': {len(local)} examples (+{len(new)} new, ~{changed} updated, -{removed} removed)")
-
-
-def _summarise(results) -> None:
-    scores: dict[str, list[float]] = defaultdict(list)
-    problems = []
-    for row in results:
-        question = row["example"].inputs["question"]
-        for res in row["evaluation_results"]["results"]:
-            if res.score is None:
-                continue
-            scores[res.key].append(float(res.score))
-            if res.score < 1:
-                problems.append((res.key, res.score, question, res.comment))
-
-    print("\nScores (mean over applicable examples)")
-    for key in ["correctness", "groundedness", "retrieval_hit", "refusal"]:
-        vals = scores.get(key, [])
-        if vals:
-            print(f"  {key:<14} {sum(vals) / len(vals):.2f}   (n={len(vals)})")
-    if problems:
-        print("\nBelow-perfect results")
-        for key, score, question, comment in sorted(problems):
-            print(f"  [{key} {score:.1f}] {question}\n      {comment}")
 
 
 def main() -> None:
@@ -103,16 +84,28 @@ def main() -> None:
     prompt_text = load_system_prompt(prompt_path)
     client = Client()
     sync_dataset(client, _load_local_dataset(config.EVAL_DATASET_PATH))
+    embeddings.warm_up()  # load once before parallel workers start
 
     def target(inputs: dict) -> dict:
         result = answer(inputs["question"], prompt_path=prompt_path)
         chunks = result["chunks"]
         return {
             "answer": result["answer"],
-            "sources": sorted({c.source for c in chunks}),
+            "sources": list(dict.fromkeys(c.source for c in chunks)),  # unique, best match first
             "contexts": [c.text for c in chunks],
         }
 
+    settings = {
+        "system_prompt_file": prompt_path.name,
+        "system_prompt_sha": hashlib.sha256(prompt_text.encode()).hexdigest()[:10],
+        "llm_model": config.LLM_MODEL,
+        "judge_model": config.JUDGE_MODEL,
+        "embed_model": config.EMBED_MODEL,
+        "chunk_size": config.CHUNK_SIZE,
+        "chunk_overlap": config.CHUNK_OVERLAP,
+        "top_k": config.TOP_K,
+        "temperature": config.TEMPERATURE,
+    }
     results = evaluate(
         target,
         data=config.LANGSMITH_DATASET,
@@ -120,21 +113,12 @@ def main() -> None:
         experiment_prefix=args.name or prompt_path.stem,
         max_concurrency=args.concurrency,
         client=client,
-        metadata={
-            "system_prompt_file": prompt_path.name,
-            "system_prompt_sha": hashlib.sha256(prompt_text.encode()).hexdigest()[:10],
-            "system_prompt": prompt_text,
-            "llm_model": config.LLM_MODEL,
-            "judge_model": config.JUDGE_MODEL,
-            "embed_model": config.EMBED_MODEL,
-            "chunk_size": config.CHUNK_SIZE,
-            "chunk_overlap": config.CHUNK_OVERLAP,
-            "top_k": config.TOP_K,
-            "temperature": config.TEMPERATURE,
-        },
+        metadata={**settings, "system_prompt": prompt_text},
     )
-    _summarise(results)
-    print(f"\nExperiment: {results.experiment_name}  (compare runs in LangSmith > Datasets > {config.LANGSMITH_DATASET})")
+    card = report.build(results, settings)
+    path = report.publish(card, client)
+    print("\n" + report.render(card))
+    print(f"Report saved to {path.relative_to(config.ROOT)}")
 
 
 if __name__ == "__main__":
