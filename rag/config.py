@@ -42,5 +42,13 @@ CHUNK_OVERLAP = int(_env("RAG_CHUNK_OVERLAP", "400"))
 TOP_K = int(_env("RAG_TOP_K", "6"))
 HISTORY_TURNS = int(_env("RAG_HISTORY_TURNS", "3"))
 
+# Reranking (TypeSafe AI's Jev). RERANKER: "none" or "jev"
+RERANKER = _env("RAG_RERANKER", "none").lower()
+RERANK_CANDIDATES = int(_env("RAG_RERANK_CANDIDATES", "20"))
+TYPESAFE_API_KEY = os.getenv("TYPESAFE_API_KEY", "")
+TYPESAFE_BASE_URL = _env("TYPESAFE_BASE_URL", "https://api.typesafe.ai")
+JEV_MODEL = _env("RAG_JEV_MODEL", "jev-latest")
+JEV_TIMEOUT = float(_env("RAG_JEV_TIMEOUT", "10"))
+
 # LangSmith
 LANGSMITH_DATASET = _env("LANGSMITH_DATASET", "rag-playground-eval")

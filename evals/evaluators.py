@@ -84,6 +84,20 @@ def retrieval(inputs: dict, outputs: dict, reference_outputs: dict) -> dict:
     return {"key": "retrieval", "score": len(ranks) / len(expected), "comment": comment}
 
 
+def retrieval_rank(inputs: dict, outputs: dict, reference_outputs: dict) -> dict:
+    """Reciprocal rank of the first expected source (1 = top chunk, 0.5 = second...).
+
+    Recall@k says whether the right document made it into the context; this says how high it
+    ranked, which is what a reranker changes. Reported alongside, not part of `overall`.
+    """
+    expected = reference_outputs.get("expected_sources") or []
+    if not expected:
+        return {"key": "retrieval_rank", "score": None, "comment": "no expected_sources"}
+    retrieved = outputs.get("sources", [])
+    rank = min((retrieved.index(s) + 1 for s in expected if s in retrieved), default=None)
+    return {"key": "retrieval_rank", "score": 1 / rank if rank else 0.0, "comment": f"rank {rank}" if rank else "not retrieved"}
+
+
 def correctness(inputs: dict, outputs: dict, reference_outputs: dict) -> dict:
     """LLM judge: does the answer agree with the reference answer?"""
     reference = reference_outputs.get("reference")
@@ -114,5 +128,5 @@ def groundedness(inputs: dict, outputs: dict, reference_outputs: dict) -> dict:
     return {"key": "groundedness", "score": score, "comment": reasoning}
 
 
-ALL = [groundedness, correctness, retrieval, guardrail]
+ALL = [groundedness, correctness, retrieval, retrieval_rank, guardrail]
 METRICS = ["groundedness", "correctness", "retrieval", "guardrail"]

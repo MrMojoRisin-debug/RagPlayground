@@ -69,10 +69,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run a LangSmith eval of the RAG pipeline.")
     parser.add_argument("--prompt", default=None, help="system prompt file (default: RAG_SYSTEM_PROMPT)")
     parser.add_argument("--name", default=None, help="experiment name prefix (default: prompt file name)")
+    parser.add_argument("--reranker", choices=["none", "jev"], default=None, help="override RAG_RERANKER")
     parser.add_argument("-c", "--concurrency", type=int, default=4, help="parallel examples (default 4)")
     args = parser.parse_args()
 
-    missing = [k for k in ("LANGSMITH_API_KEY", "OPENROUTER_API_KEY") if not os.getenv(k)]
+    if args.reranker:
+        config.RERANKER = args.reranker
+    required = ["LANGSMITH_API_KEY", "OPENROUTER_API_KEY"] + (["TYPESAFE_API_KEY"] if config.RERANKER == "jev" else [])
+    missing = [k for k in required if not os.getenv(k)]
     if missing:
         sys.exit(f"Missing {', '.join(missing)} - add to .env (see .env.example).")
     if store.collection().count() == 0:
@@ -104,13 +108,16 @@ def main() -> None:
         "chunk_size": config.CHUNK_SIZE,
         "chunk_overlap": config.CHUNK_OVERLAP,
         "top_k": config.TOP_K,
+        "reranker": config.RERANKER,
+        "rerank_candidates": config.RERANK_CANDIDATES if config.RERANKER == "jev" else None,
+        "jev_model": config.JEV_MODEL if config.RERANKER == "jev" else None,
         "temperature": config.TEMPERATURE,
     }
     results = evaluate(
         target,
         data=config.LANGSMITH_DATASET,
         evaluators=evaluators.ALL,
-        experiment_prefix=args.name or prompt_path.stem,
+        experiment_prefix=args.name or f"{prompt_path.stem}-{config.RERANKER}",
         max_concurrency=args.concurrency,
         client=client,
         metadata={**settings, "system_prompt": prompt_text},

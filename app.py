@@ -24,7 +24,8 @@ def render_sources(sources: list[dict]) -> None:
         return
     with st.expander(f"Sources ({len(sources)})"):
         for i, s in enumerate(sources, 1):
-            st.markdown(f"**[{i}] {s['label']}** · similarity {s['score']:.2f}")
+            jev = f" · Jev relevance {s['rerank']:.1f}/3" if s.get("rerank") is not None else ""
+            st.markdown(f"**[{i}] {s['label']}** · similarity {s['score']:.2f}{jev}")
             st.markdown("> " + s["text"].replace("\n", "\n> "))
 
 
@@ -64,7 +65,9 @@ with st.sidebar:
     tracing = os.getenv("LANGSMITH_TRACING", "").lower() == "true" and os.getenv("LANGSMITH_API_KEY")
     st.caption(
         f"LLM: `{config.LLM_MODEL}`  \nEmbeddings: `{config.EMBED_MODEL}`  \n"
-        f"Top-k: {config.TOP_K} · LangSmith tracing: {'on' if tracing else 'off'}"
+        f"Top-k: {config.TOP_K} · Reranker: "
+        f"{f'Jev (top {config.RERANK_CANDIDATES})' if config.RERANKER == 'jev' else 'off'}  \n"
+        f"LangSmith tracing: {'on' if tracing else 'off'}"
     )
     if st.button("Clear chat", width="stretch"):
         st.session_state.messages = []
@@ -107,7 +110,7 @@ if question := st.chat_input("Ask a question about your corpus"):
             with st.spinner("Searching the corpus..."):
                 chunks = next(events)
             text = st.write_stream(events)
-            sources = [{"label": c.label, "text": c.text, "score": c.score} for c in chunks]
+            sources = [{"label": c.label, "text": c.text, "score": c.score, "rerank": c.rerank_score} for c in chunks]
             render_sources(sources)
             st.session_state.messages.append({"role": "assistant", "content": text, "sources": sources})
         except Exception as exc:

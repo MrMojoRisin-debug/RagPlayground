@@ -13,7 +13,7 @@ from dataclasses import dataclass
 import numpy as np
 from langsmith import traceable
 
-from . import config, embeddings, store
+from . import config, embeddings, rerank, store
 
 
 @dataclass
@@ -23,6 +23,7 @@ class Chunk:
     page: int | None
     page_end: int | None
     score: float  # cosine similarity, higher is better
+    rerank_score: float | None = None  # Jev relevance, 0 (unrelated) to 3 (directly answers)
 
     @property
     def label(self) -> str:
@@ -56,7 +57,18 @@ def _index():
 
 
 @traceable(run_type="retriever", name="retrieve")
-def retrieve(question: str, k: int = config.TOP_K) -> list[Chunk]:
+def retrieve(question: str, k: int | None = None) -> list[Chunk]:
+    """Top-k chunks for the question; with RAG_RERANKER=jev, reranked from a wider candidate set."""
+    k = k or config.TOP_K
+    chunks = search(question, rerank.candidates_for(k))
+    if config.RERANKER == "jev":
+        return rerank.rerank(question, chunks, k)
+    return chunks[:k]
+
+
+@traceable(name="search")
+def search(question: str, k: int) -> list[Chunk]:
+    """Exact cosine search: the k most similar chunks, best first."""
     ids, metas, matrix = _index()
     if not ids:
         return []

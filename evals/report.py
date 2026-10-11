@@ -31,6 +31,7 @@ class Scorecard:
     failures: list[tuple[str, str, float, str]] = field(default_factory=list)  # metric, question, score, comment
     over_refusals: list[str] = field(default_factory=list)
     unscored: list[tuple[str, str, str]] = field(default_factory=list)  # metric, question, comment
+    ranks: list[float] = field(default_factory=list)  # reciprocal rank per question
     passed: int = 0
     total: int = 0
 
@@ -57,6 +58,9 @@ def build(results, settings: dict) -> Scorecard:
         card.total += 1
         perfect = True
         for res in row["evaluation_results"]["results"]:
+            if res.key == "retrieval_rank" and res.score is not None:
+                card.ranks.append(float(res.score))
+                continue
             if res.key not in METRICS:
                 continue
             if res.score is None:
@@ -91,6 +95,7 @@ def render(card: Scorecard) -> str:
         f"- System prompt: `{s['system_prompt_file']}` (sha {s['system_prompt_sha']})",
         f"- LLM: `{s['llm_model']}` · judge: `{s['judge_model']}`",
         f"- Retrieval: `{s['embed_model']}`, top-k {s['top_k']}, chunk {s['chunk_size']}/{s['chunk_overlap']} chars",
+        f"- Reranker: " + (f"Jev `{s['jev_model']}` over top {s['rerank_candidates']}" if s.get("reranker") == "jev" else "none"),
     ]
     if card.url:
         lines.append(f"- LangSmith: {card.url}")
@@ -109,6 +114,10 @@ def render(card: Scorecard) -> str:
         f"{'Pass rate':<14}{card.pass_rate:>7.2f}  {_bar(card.pass_rate)}  {card.total:>3}   "
         f"{card.passed}/{card.total} questions perfect on every applicable metric"
     )
+    if card.ranks:
+        mrr = sum(card.ranks) / len(card.ranks)
+        lines.append(f"{'Retrieval MRR':<14}{mrr:>7.2f}  {_bar(mrr)}  {len(card.ranks):>3}   "
+                     "how high the right document ranks (1 = always first; not part of overall)")
     lines.append("```")
 
     if card.guardrail_by_category:
@@ -140,6 +149,7 @@ def publish(card: Scorecard, client) -> Path:
     for key, score, comment in [
         ("overall", card.overall, "mean of groundedness, correctness, retrieval, guardrail"),
         ("pass_rate", card.pass_rate, f"{card.passed}/{card.total} questions perfect on every metric"),
+        ("retrieval_mrr", sum(card.ranks) / len(card.ranks) if card.ranks else None, "mean reciprocal rank of the expected source"),
     ]:
         if score is not None:
             client.create_feedback(None, key=key, score=score, comment=comment, project_id=project.id)

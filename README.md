@@ -54,6 +54,10 @@ question ──> embed ──> top-k chunks ──> [system prompt + <sources> +
 - **Exact search**: retrieval compares the question against every chunk embedding (one matrix multiply,
   ~50 ms for 20k chunks). Chroma's approximate HNSW index silently lost small documents sitting next to
   the large PDF corpus, so it is used for storage only.
+- **Jev reranker** (optional, `RAG_RERANKER=jev`): search fetches the top `RAG_RERANK_CANDIDATES` (20)
+  chunks, TypeSafe AI's Jev rates each against the question on a 0-3 rubric in one request (~0.5 s),
+  and the best `RAG_TOP_K` go to the LLM. If Jev fails, the embedding order is used. Compare with
+  `uv run eval --reranker none` vs `--reranker jev`. Needs `TYPESAFE_API_KEY`.
 - **Incremental ingest**: `data/manifest.json` stores a content hash per file, so only new or changed
   files are re-embedded and deleted files are removed from the index.
 - **System prompt** (`prompts/*.md`): your guardrails and style. Retrieved sources are appended by code in
@@ -84,6 +88,7 @@ question ──> embed ──> top-k chunks ──> [system prompt + <sources> +
 | groundedness | every claim is supported by the retrieved chunks | LLM judge | answerable |
 | correctness | answer matches the reference | LLM judge | answerable |
 | retrieval | expected sources appear in the top-k (recall@k; comment shows rank) | exact match | answerable with `expected_sources` |
+| retrieval_rank | 1/rank of the expected source; reported as Retrieval MRR, not in `overall` | exact match | answerable with `expected_sources` |
 | guardrail | the question was declined | refusal phrase or model safety block, else LLM judge | `REFUSE` |
 | **overall** | mean of the four metrics | summary | experiment |
 | **pass_rate** | share of questions perfect on every applicable metric | summary | experiment |
